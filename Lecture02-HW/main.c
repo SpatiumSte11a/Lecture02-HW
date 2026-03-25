@@ -52,7 +52,31 @@ const char* g_shaderSource =
 "}";
 
 /* =============================================================================
- * [4. Window Procedure]
+ * [4. Static Hexagram Vertices]
+ * ========================================================================== */
+void BuildStaticHexagram(Vertex* v)
+{
+    /* --- [Up Triangle] ----------------------------------------------------- */
+    v[0].x = 0.00f;  v[0].y = 0.36f;  v[0].z = 0.5f;
+    v[1].x = -0.31f;  v[1].y = -0.18f;  v[1].z = 0.5f;
+    v[2].x = 0.31f;  v[2].y = -0.18f;  v[2].z = 0.5f;
+
+    v[0].r = 1.0f; v[0].g = 0.85f; v[0].b = 0.20f; v[0].a = 1.0f;
+    v[1].r = 1.0f; v[1].g = 0.35f; v[1].b = 0.20f; v[1].a = 1.0f;
+    v[2].r = 1.0f; v[2].g = 0.55f; v[2].b = 0.20f; v[2].a = 1.0f;
+
+    /* --- [Down Triangle] --------------------------------------------------- */
+    v[3].x = 0.00f;  v[3].y = -0.36f;  v[3].z = 0.5f;
+    v[4].x = 0.31f;  v[4].y = 0.18f;  v[4].z = 0.5f;
+    v[5].x = -0.31f;  v[5].y = 0.18f;  v[5].z = 0.5f;
+
+    v[3].r = 0.20f; v[3].g = 0.80f; v[3].b = 1.0f; v[3].a = 1.0f;
+    v[4].r = 0.20f; v[4].g = 0.45f; v[4].b = 1.0f; v[4].a = 1.0f;
+    v[5].r = 0.45f; v[5].g = 0.20f; v[5].b = 1.0f; v[5].a = 1.0f;
+}
+
+/* =============================================================================
+ * [5. Window Procedure]
  * ========================================================================== */
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -71,7 +95,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 /* =============================================================================
- * [5. DirectX Initialization]
+ * [6. DirectX Initialization]
  * ========================================================================== */
 int InitD3D(HWND hWnd)
 {
@@ -84,13 +108,9 @@ int InitD3D(HWND hWnd)
     D3D11_RASTERIZER_DESC rsDesc;
     D3D11_BUFFER_DESC bd;
     D3D11_SUBRESOURCE_DATA initData;
+    Vertex vertices[6];
 
-    Vertex vertices[3] =
-    {
-        {  0.0f,  0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f },
-        {  0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f },
-        { -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f }
-    };
+    BuildStaticHexagram(vertices);
 
     ZeroMemory(&sd, sizeof(sd));
     sd.BufferCount = 1;
@@ -104,32 +124,65 @@ int InitD3D(HWND hWnd)
     sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
     hr = D3D11CreateDeviceAndSwapChain(
-        NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0,
-        NULL, 0, D3D11_SDK_VERSION,
-        &sd, &g_pSwapChain, &g_pd3dDevice, NULL, &g_pImmediateContext
+        NULL,
+        D3D_DRIVER_TYPE_HARDWARE,
+        NULL,
+        0,
+        NULL,
+        0,
+        D3D11_SDK_VERSION,
+        &sd,
+        &g_pSwapChain,
+        &g_pd3dDevice,
+        NULL,
+        &g_pImmediateContext
     );
     if (FAILED(hr)) return 0;
 
     hr = g_pSwapChain->lpVtbl->GetBuffer(
-        g_pSwapChain, 0, &IID_ID3D11Texture2D, (void**)&pBackBuffer
+        g_pSwapChain,
+        0,
+        &IID_ID3D11Texture2D,
+        (void**)&pBackBuffer
     );
     if (FAILED(hr)) return 0;
 
     hr = g_pd3dDevice->lpVtbl->CreateRenderTargetView(
-        g_pd3dDevice, (ID3D11Resource*)pBackBuffer, NULL, &g_pRenderTargetView
+        g_pd3dDevice,
+        (ID3D11Resource*)pBackBuffer,
+        NULL,
+        &g_pRenderTargetView
     );
     pBackBuffer->lpVtbl->Release(pBackBuffer);
     if (FAILED(hr)) return 0;
 
     hr = D3DCompile(
-        g_shaderSource, strlen(g_shaderSource),
-        NULL, NULL, NULL, "VS", "vs_4_0", 0, 0, &pVSBlob, NULL
+        g_shaderSource,
+        strlen(g_shaderSource),
+        NULL,
+        NULL,
+        NULL,
+        "VS",
+        "vs_4_0",
+        0,
+        0,
+        &pVSBlob,
+        NULL
     );
     if (FAILED(hr)) return 0;
 
     hr = D3DCompile(
-        g_shaderSource, strlen(g_shaderSource),
-        NULL, NULL, NULL, "PS", "ps_4_0", 0, 0, &pPSBlob, NULL
+        g_shaderSource,
+        strlen(g_shaderSource),
+        NULL,
+        NULL,
+        NULL,
+        "PS",
+        "ps_4_0",
+        0,
+        0,
+        &pPSBlob,
+        NULL
     );
     if (FAILED(hr)) return 0;
 
@@ -169,7 +222,8 @@ int InitD3D(HWND hWnd)
 
     hr = g_pd3dDevice->lpVtbl->CreateInputLayout(
         g_pd3dDevice,
-        layout, 2,
+        layout,
+        2,
         pVSBlob->lpVtbl->GetBufferPointer(pVSBlob),
         pVSBlob->lpVtbl->GetBufferSize(pVSBlob),
         &g_pVertexLayout
@@ -181,14 +235,18 @@ int InitD3D(HWND hWnd)
 
     ZeroMemory(&bd, sizeof(bd));
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(Vertex) * 3;
+    bd.ByteWidth = sizeof(Vertex) * 6;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    bd.CPUAccessFlags = 0;
 
     ZeroMemory(&initData, sizeof(initData));
     initData.pSysMem = vertices;
 
     hr = g_pd3dDevice->lpVtbl->CreateBuffer(
-        g_pd3dDevice, &bd, &initData, &g_pVertexBuffer
+        g_pd3dDevice,
+        &bd,
+        &initData,
+        &g_pVertexBuffer
     );
     if (FAILED(hr)) return 0;
 
@@ -198,7 +256,9 @@ int InitD3D(HWND hWnd)
     rsDesc.DepthClipEnable = TRUE;
 
     hr = g_pd3dDevice->lpVtbl->CreateRasterizerState(
-        g_pd3dDevice, &rsDesc, &g_pRasterState
+        g_pd3dDevice,
+        &rsDesc,
+        &g_pRasterState
     );
     if (FAILED(hr)) return 0;
 
@@ -206,7 +266,7 @@ int InitD3D(HWND hWnd)
 }
 
 /* =============================================================================
- * [6. Render]
+ * [7. Render]
  * ========================================================================== */
 void RenderGame(void)
 {
@@ -216,11 +276,16 @@ void RenderGame(void)
     UINT offset = 0;
 
     g_pImmediateContext->lpVtbl->ClearRenderTargetView(
-        g_pImmediateContext, g_pRenderTargetView, clearColor
+        g_pImmediateContext,
+        g_pRenderTargetView,
+        clearColor
     );
 
     g_pImmediateContext->lpVtbl->OMSetRenderTargets(
-        g_pImmediateContext, 1, &g_pRenderTargetView, NULL
+        g_pImmediateContext,
+        1,
+        &g_pRenderTargetView,
+        NULL
     );
 
     vp.TopLeftX = 0.0f;
@@ -234,37 +299,43 @@ void RenderGame(void)
     g_pImmediateContext->lpVtbl->RSSetState(g_pImmediateContext, g_pRasterState);
     g_pImmediateContext->lpVtbl->IASetInputLayout(g_pImmediateContext, g_pVertexLayout);
     g_pImmediateContext->lpVtbl->IASetVertexBuffers(
-        g_pImmediateContext, 0, 1, &g_pVertexBuffer, &stride, &offset
+        g_pImmediateContext,
+        0,
+        1,
+        &g_pVertexBuffer,
+        &stride,
+        &offset
     );
     g_pImmediateContext->lpVtbl->IASetPrimitiveTopology(
-        g_pImmediateContext, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+        g_pImmediateContext,
+        D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
     );
 
     g_pImmediateContext->lpVtbl->VSSetShader(g_pImmediateContext, g_pVertexShader, NULL, 0);
     g_pImmediateContext->lpVtbl->PSSetShader(g_pImmediateContext, g_pPixelShader, NULL, 0);
 
-    g_pImmediateContext->lpVtbl->Draw(g_pImmediateContext, 3, 0);
+    g_pImmediateContext->lpVtbl->Draw(g_pImmediateContext, 6, 0);
     g_pSwapChain->lpVtbl->Present(g_pSwapChain, 0, 0);
 }
 
 /* =============================================================================
- * [7. Cleanup]
+ * [8. Cleanup]
  * ========================================================================== */
 void CleanupD3D(void)
 {
-    if (g_pRasterState) g_pRasterState->lpVtbl->Release(g_pRasterState);
-    if (g_pVertexBuffer) g_pVertexBuffer->lpVtbl->Release(g_pVertexBuffer);
-    if (g_pVertexLayout) g_pVertexLayout->lpVtbl->Release(g_pVertexLayout);
-    if (g_pVertexShader) g_pVertexShader->lpVtbl->Release(g_pVertexShader);
-    if (g_pPixelShader) g_pPixelShader->lpVtbl->Release(g_pPixelShader);
-    if (g_pRenderTargetView) g_pRenderTargetView->lpVtbl->Release(g_pRenderTargetView);
-    if (g_pSwapChain) g_pSwapChain->lpVtbl->Release(g_pSwapChain);
-    if (g_pImmediateContext) g_pImmediateContext->lpVtbl->Release(g_pImmediateContext);
-    if (g_pd3dDevice) g_pd3dDevice->lpVtbl->Release(g_pd3dDevice);
+    if (g_pRasterState)       g_pRasterState->lpVtbl->Release(g_pRasterState);
+    if (g_pVertexBuffer)      g_pVertexBuffer->lpVtbl->Release(g_pVertexBuffer);
+    if (g_pVertexLayout)      g_pVertexLayout->lpVtbl->Release(g_pVertexLayout);
+    if (g_pVertexShader)      g_pVertexShader->lpVtbl->Release(g_pVertexShader);
+    if (g_pPixelShader)       g_pPixelShader->lpVtbl->Release(g_pPixelShader);
+    if (g_pRenderTargetView)  g_pRenderTargetView->lpVtbl->Release(g_pRenderTargetView);
+    if (g_pSwapChain)         g_pSwapChain->lpVtbl->Release(g_pSwapChain);
+    if (g_pImmediateContext)  g_pImmediateContext->lpVtbl->Release(g_pImmediateContext);
+    if (g_pd3dDevice)         g_pd3dDevice->lpVtbl->Release(g_pd3dDevice);
 }
 
 /* =============================================================================
- * [8. WinMain]
+ * [9. WinMain]
  * ========================================================================== */
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -288,7 +359,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     hWnd = CreateWindowW(
         L"Lecture02HWClass",
-        L"Lecture02 HW - Commit 1",
+        L"Lecture02 HW - Commit 2",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -300,12 +371,14 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         NULL
     );
 
-    if (!hWnd) return -1;
+    if (!hWnd)
+        return -1;
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
-    if (!InitD3D(hWnd)) return -1;
+    if (!InitD3D(hWnd))
+        return -1;
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
