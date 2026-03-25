@@ -104,15 +104,19 @@ void BuildHexagramVertices(GameContext* ctx)
 }
 
 /* =============================================================================
- * [6. Initial Vertex Buffer Creation]
+ * [6. Vertex Buffer Recreation]
  * ========================================================================== */
-int CreateInitialVertexBuffer(GameContext* ctx)
+int RecreateVertexBuffer(GameContext* ctx)
 {
     HRESULT hr;
     D3D11_BUFFER_DESC bd;
     D3D11_SUBRESOURCE_DATA initData;
 
-    BuildHexagramVertices(ctx);
+    if (g_pVertexBuffer != NULL)
+    {
+        g_pVertexBuffer->lpVtbl->Release(g_pVertexBuffer);
+        g_pVertexBuffer = NULL;
+    }
 
     ZeroMemory(&bd, sizeof(bd));
     bd.Usage = D3D11_USAGE_DEFAULT;
@@ -144,7 +148,45 @@ void ProcessInput(GameContext* ctx)
 
 void UpdateGame(GameContext* ctx)
 {
-    (void)ctx;
+    int moved = 0;
+    float halfWidth = 0.31f;
+    float halfHeight = 0.36f;
+
+    if (ctx->keyLeft)
+    {
+        ctx->posX -= ctx->moveSpeed;
+        moved = 1;
+    }
+
+    if (ctx->keyRight)
+    {
+        ctx->posX += ctx->moveSpeed;
+        moved = 1;
+    }
+
+    if (ctx->keyUp)
+    {
+        ctx->posY += ctx->moveSpeed;
+        moved = 1;
+    }
+
+    if (ctx->keyDown)
+    {
+        ctx->posY -= ctx->moveSpeed;
+        moved = 1;
+    }
+
+    /* --- [Boundary Check] -------------------------------------------------- */
+    if (ctx->posX < -1.0f + halfWidth)  ctx->posX = -1.0f + halfWidth;
+    if (ctx->posX > 1.0f - halfWidth)  ctx->posX = 1.0f - halfWidth;
+    if (ctx->posY < -1.0f + halfHeight) ctx->posY = -1.0f + halfHeight;
+    if (ctx->posY > 1.0f - halfHeight) ctx->posY = 1.0f - halfHeight;
+
+    if (moved)
+    {
+        BuildHexagramVertices(ctx);
+        RecreateVertexBuffer(ctx);
+    }
 }
 
 void RenderGame(void)
@@ -370,8 +412,8 @@ int InitD3D(HWND hWnd)
     pVSBlob->lpVtbl->Release(pVSBlob);
     pPSBlob->lpVtbl->Release(pPSBlob);
 
-    if (!CreateInitialVertexBuffer(&g_game))
-        return 0;
+    BuildHexagramVertices(&g_game);
+    if (!RecreateVertexBuffer(&g_game)) return 0;
 
     ZeroMemory(&rsDesc, sizeof(rsDesc));
     rsDesc.FillMode = D3D11_FILL_SOLID;
@@ -441,14 +483,15 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         NULL
     );
 
-    if (!hWnd)
-        return -1;
+    if (!hWnd) return -1;
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
+    printf("=== Moving Hexagram Homework ===\n");
+    printf("Control : Arrow Keys / WASD\n");
+    printf("Quit    : Q or Window Close Button\n\n");
 
-    if (!InitD3D(hWnd))
-        return -1;
+    if (!InitD3D(hWnd)) return -1;
 
     ZeroMemory(&msg, sizeof(msg));
 
