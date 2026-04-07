@@ -4,6 +4,8 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <iostream>
+#include <chrono>
+#include <cstring>
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -46,13 +48,20 @@ struct Vertex
     float r, g, b, a;
 };
 
-// small red demo triangle for the homework scene
-Vertex g_Vertices[] =
+// local triangle shape
+Vertex g_BaseTriangle[] =
 {
     {  0.0f,  0.12f, 0.5f, 1.0f, 0.2f, 0.2f, 1.0f },
     {  0.10f, -0.10f, 0.5f, 1.0f, 0.2f, 0.2f, 1.0f },
     { -0.10f, -0.10f, 0.5f, 1.0f, 0.2f, 0.2f, 1.0f }
 };
+
+// first player position
+float g_TriangleX = 0.0f;
+float g_TriangleY = 0.0f;
+
+// movement speed in normalized device coordinates
+float g_MoveSpeed = 0.8f;
 
 // simple passthrough shader
 const char* g_ShaderSource = R"(
@@ -256,12 +265,12 @@ bool CreateTriangleResources()
     }
 
     D3D11_BUFFER_DESC bd = {};
-    bd.ByteWidth = sizeof(g_Vertices);
+    bd.ByteWidth = sizeof(g_BaseTriangle);
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
     D3D11_SUBRESOURCE_DATA initData = {};
-    initData.pSysMem = g_Vertices;
+    initData.pSysMem = g_BaseTriangle;
 
     hr = g_pd3dDevice->CreateBuffer(&bd, &initData, &g_pVertexBuffer);
     if (FAILED(hr))
@@ -271,6 +280,53 @@ bool CreateTriangleResources()
     }
 
     return true;
+}
+
+// ============================================================
+// Triangle Update
+// ============================================================
+void UpdateTrianglePosition(float dt)
+{
+    float vx = 0.0f;
+    float vy = 0.0f;
+
+    // first triangle control
+    if (GetAsyncKeyState('W') & 0x8000) vy += 1.0f;
+    if (GetAsyncKeyState('S') & 0x8000) vy -= 1.0f;
+    if (GetAsyncKeyState('A') & 0x8000) vx -= 1.0f;
+    if (GetAsyncKeyState('D') & 0x8000) vx += 1.0f;
+
+    // position = position + velocity * deltaTime
+    g_TriangleX += vx * g_MoveSpeed * dt;
+    g_TriangleY += vy * g_MoveSpeed * dt;
+
+    // keep the triangle inside the visible area
+    if (g_TriangleX < -0.85f) g_TriangleX = -0.85f;
+    if (g_TriangleX > 0.85f) g_TriangleX = 0.85f;
+    if (g_TriangleY < -0.85f) g_TriangleY = -0.85f;
+    if (g_TriangleY > 0.85f) g_TriangleY = 0.85f;
+}
+
+void UpdateTriangleBuffer()
+{
+    // rebuild the current triangle vertices from local shape + position
+    Vertex currentVertices[3];
+
+    for (int i = 0; i < 3; i++)
+    {
+        currentVertices[i] = g_BaseTriangle[i];
+        currentVertices[i].x += g_TriangleX;
+        currentVertices[i].y += g_TriangleY;
+    }
+
+    g_pImmediateContext->UpdateSubresource(
+        g_pVertexBuffer,
+        0,
+        nullptr,
+        currentVertices,
+        0,
+        0
+    );
 }
 
 // ============================================================
@@ -376,6 +432,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // 4. Game Loop
     // ------------------------------------------------------------
     MSG msg = { 0 };
+
+    // frame timing for movement
+    std::chrono::high_resolution_clock::time_point prevTime =
+        std::chrono::high_resolution_clock::now();
+
     while (WM_QUIT != msg.message)
     {
         if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
@@ -385,6 +446,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         else
         {
+            std::chrono::high_resolution_clock::time_point currentTime =
+                std::chrono::high_resolution_clock::now();
+
+            std::chrono::duration<float> elapsed = currentTime - prevTime;
+            float deltaTime = elapsed.count();
+            prevTime = currentTime;
+
             // check ESC every frame
             if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
             {
@@ -405,6 +473,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 RebuildVideoResources(hWnd);
             }
 
+            // update first triangle movement
+            UpdateTrianglePosition(deltaTime);
+            UpdateTriangleBuffer();
+
             // ----------------------------------------------------
             // rendering
             // ----------------------------------------------------
@@ -422,7 +494,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             g_pImmediateContext->RSSetViewports(1, &vp);
             g_pImmediateContext->ClearRenderTargetView(g_pRenderTargetView, clearColor);
 
-            // static triangle draw path
+            // draw current triangle state
             UINT stride = sizeof(Vertex);
             UINT offset = 0;
 
